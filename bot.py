@@ -1,6 +1,11 @@
-import os
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+)
+
+import os
 
 TOKEN = os.getenv("BOT_TOKEN")
 
@@ -10,23 +15,17 @@ def format_account(text: str):
     while len(parts) < 7:
         parts.append("")
 
-    user_id = parts[0]
-    password = parts[1]
-    twofa = parts[2]
-    mail = parts[3]
-    mail_pass = parts[4]
-    second_mail = parts[5]
-    cookie_full = parts[6]
+    user_id, password, twofa, mail, mail_pass, second_mail, cookie_full = parts
+
+    import re
+    c_user = re.search(r'c_user=[^;]+;', cookie_full)
+    xs = re.search(r'xs=[^;]+;', cookie_full)
 
     cookie_result = ""
-    if "c_user=" in cookie_full and "xs=" in cookie_full:
-        import re
-        c_user = re.search(r'c_user=[^;]+;', cookie_full)
-        xs = re.search(r'xs=[^;]+;', cookie_full)
-        if c_user and xs:
-            cookie_result = f"{c_user.group()}{xs.group()}"
+    if c_user and xs:
+        cookie_result = f"{c_user.group()}{xs.group()}"
 
-    result = f"""help me check new profile      :
+    result = f"""help me check new profile :
 id: {user_id}
 pass: {password}
 2fa: {twofa}
@@ -37,14 +36,22 @@ pass mail: {mail_pass}"""
         result += f"\n2nd mail: {second_mail}"
 
     result += f"\ncookie: {cookie_result}"
+
     return result
 
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(format_account(update.message.text))
+async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Vui lòng nhập chuỗi sau /split")
+        return
+
+    text = " ".join(context.args)
+    await update.message.reply_text(format_account(text))
 
 
 app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+# ✅ Chỉ có lệnh /split
+app.add_handler(CommandHandler("split", split_command))
 
 app.run_polling()
